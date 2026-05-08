@@ -2,7 +2,7 @@
   "name": "Word Wise 4 단어학습",
   "short_name": "WordWise4",
   "description": "Word Wise 4 플래시카드 & 타이핑 테스트",
-  "start_url": "./index.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#0e0e14",
   "theme_color": "#0e0e14",
