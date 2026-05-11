@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Wise 4 — 단어 학습</title>
+<link href="https://fonts.googleapis.com/css2?family=Gmarket+Sans:wght@300;500;700&family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e14;
+    --surface: #16161f;
+    --surface2: #1e1e2e;
+    --border: #2a2a3e;
+    --accent: #7c6af7;
+    --accent2: #f7c86a;
+    --accent3: #6af7c8;
+    --text: #e8e8f0;
+    --text-dim: #7878a0;
+    --text-faint: #3a3a55;
+    --correct: #6af7c8;
+    --wrong: #f76a8a;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BG decoration */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -150px; right: -150px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(106,247,200,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative; z-index: 10;
+    padding: 24px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .logo span { color: var(--accent2); }
+
+  /* ── MAIN WRAPPER ── */
+  .main { position: relative; z-index: 5; padding: 32px 24px; max-width: 820px; margin: 0 auto; }
+
+  /* ── STEP 1: DAY SELECT ── */
+  #screen-select { animation: fadeUp 0.4s ease; }
+
+  .screen-title {
+    font-family: 'Gmarket Sans', sans-serif;
+    font-size: 1.8rem; font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .screen-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 32px; }
+
+  .day-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px; margin-bottom: 32px;
+  }
+  .day-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 12px;
+    padding: 14px 0;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .day-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  .day-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .mode-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: center;
+  }
+  .mode-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .mode-card.selected { border-color: var(--accent); background: rgba(124,106,247,0.1); }
+  .mode-icon { font-size: 2rem; margin-bottom: 8px; }
+  .mode-name { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+  .mode-desc { color: var(--text-dim); font-size: 0.78rem; line-height: 1.4; }
+
+  .btn-start {
+    display: block; width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #9b6af7);
+    border: none; border-radius: var(--radius);
+    color: #fff;
+    font-family: 'Gmarket Sans', sans-serif;
+    font-size: 1.1rem; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 1px;
+  }
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,106,247,0.4); }
+  .btn-start:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── FLASHCARD ── */
+  #screen-flash { display: none; animation: fadeUp 0.4s ease; }
+
+  .progress-bar-wrap {
+    height: 4px; background: var(--surface2);
+    border-radius: 4px; margin-bottom: 28px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  .card-counter {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem; color: var(--text-dim);
+    text-align: center; margin-bottom: 16px;
+  }
+
+  .flashcard-scene {
+    perspective: 1200px;
+    margin: 0 auto 24px;
+    height: 280px;
+    cursor: pointer;
+  }
+  .flashcard {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(.4,0,.2,1);
+  }
+  .flashcard.flipped { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute; inset: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    backface-visibility: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px;
+    text-align: center;
+  }
+  .card-back { transform: rotateY(180deg); border-color: var(--accent); }
+  .card-label {
+    font-size: 0.72rem; font-family: 'Space Mono', monospace;
+    color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 20px;
+    padding: 4px 12px; border: 1px solid var(--text-faint); border-radius: 20px;
+  }
+  .card-content {
+    font-size: 1.5rem; font-weight: 700; line-height: 1.5;
+    font-family: 'Gmarket Sans', sans-serif;
+  }
+  .card-content.en { font-family: 'Space Mono', monospace; font-size: 1.6rem; color: var(--accent2); }
+  .card-hint { font-size: 0.8rem; color: var(--text-dim); margin-top: 16px; }
+  .card-tap { font-size: 0.75rem; color: var(--text-faint); margin-top: 24px; }
+
+  .flash-controls { display: flex; gap: 12px; justify-content: center; }
+  .btn-icon {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 50px;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-family: 'Gmarket Sans', sans-serif;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-icon.danger:hover { border-color: var(--wrong); color: var(--wrong); }
+  .btn-icon.success:hover { border-color: var(--correct); color: var(--correct); }
+
+  /* direction toggle */
+  .direction-toggle {
+    display: flex; gap: 8px; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .dir-btn {
+    padding: 6px 16px;
+    border-radius: 20px; font-size: 0.78rem;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+  }
+  .dir-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(247,200,106,0.1); }
+
+  /* ── TYPING TEST ── */
+  #screen-type { display: none; animation: fadeUp 0.4s ease; }
+
+  .type-prompt {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .prompt-label { font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 16px; }
+  .prompt-text { font-size: 1.5rem; font-weight: 700; font-family: 'Gmarket Sans', sans-serif; line-height: 1.5; }
+  .prompt-text.en { font-family: 'Space Mono', monospace; font-size: 1.6rem; color: var(--accent2); }
+
+  .type-input-wrap { position: relative; margin-bottom: 16px; }
+  .type-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 56px 16px 20px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .type-input:focus { border-color: var(--accent); }
+  .type-input.correct-anim { border-color: var(--correct); background: rgba(106,247,200,0.05); }
+  .type-input.wrong-anim { border-color: var(--wrong); background: rgba(247,106,138,0.05); animation: shake 0.3s ease; }
+
+  .submit-btn {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: var(--accent);
+    border: none; border-radius: 8px;
+    color: #fff; width: 36px; height: 36px;
+    cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .submit-btn:hover { background: #9b6af7; }
+
+  .feedback {
+    min-height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; font-weight: 700;
+    font-family: 'Gmarket Sans', sans-serif;
+    border-radius: 12px; padding: 12px 20px;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+  }
+  .feedback.correct { background: rgba(106,247,200,0.1); color: var(--correct); border: 1px solid rgba(106,247,200,0.3); }
+  .feedback.wrong { background: rgba(247,106,138,0.1); color: var(--wrong); border: 1px solid rgba(247,106,138,0.3); }
+  .feedback.hint {
+    background: rgba(247,200,106,0.1); color: var(--accent2);
+    border: 1px solid rgba(247,200,106,0.3);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.95rem; letter-spacing: 1px;
+    word-break: break-all; white-space: pre;
+  }
+  .feedback.hidden { opacity: 0; }
+
+  .type-controls { display: flex; gap: 10px; justify-content: center; }
+
+  /* ── RESULTS ── */
+  #screen-result { display: none; animation: fadeUp 0.4s ease; text-align: center; }
+  .result-circle {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    background: rgba(124,106,247,0.08);
+    box-shadow: 0 0 40px rgba(124,106,247,0.2);
+  }
+  .result-score { font-family: 'Space Mono', monospace; font-size: 2.2rem; font-weight: 700; color: var(--accent); }
+  .result-label { font-size: 0.72rem; color: var(--text-dim); letter-spacing: 1px; }
+  .result-msg { font-family: 'Gmarket Sans', sans-serif; font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; }
+  .result-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 32px; }
+
+  .wrong-list { text-align: left; background: var(--surface); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
+  .wrong-list h3 { font-size: 0.8rem; font-family: 'Space Mono', monospace; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 14px; }
+  .wrong-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+  .wrong-item:last-child { border-bottom: none; }
+  .wrong-kr { color: var(--text-dim); }
+  .wrong-en { font-family: 'Space Mono', monospace; color: var(--accent2); }
+
+  .result-btns { display: flex; gap: 12px; justify-content: center; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes shake { 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-8px); } 75%{ transform:translateX(8px); } }
+
+  /* ── NAV ── */
+  .top-nav {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px;
+  }
+  .back-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); border-radius: 50px;
+    padding: 8px 18px; font-size: 0.82rem; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-info { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--text-dim); }
+
+  .sel-btn {
+    padding: 8px 18px; border-radius: 50px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.85rem; cursor: pointer;
+    transition: all 0.2s; font-family: 'Noto Sans KR', sans-serif;
+  }
+  .sel-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sel-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .sel-btn.selected-class { background: var(--accent2); border-color: var(--accent2); color: #1a1000; font-weight: 700; }
+
+  /* ── RANKING ── */
+  .rank-screen { animation: fadeUp 0.4s ease; }
+  .rank-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .rank-tab {
+    flex: 1; padding: 10px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); font-family: 'Gmarket Sans', sans-serif;
+    font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .rank-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .rank-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 16px; margin-bottom: 8px;
+  }
+  .rank-item.me { border-color: var(--accent2); background: rgba(247,200,106,0.07); }
+  .rank-num { font-family: 'Space Mono', monospace; font-size: 0.9rem; min-width: 32px; text-align: center; color: var(--text-dim); }
+  .rank-medal { font-size: 1.3rem; min-width: 32px; text-align: center; }
+  .rank-info { flex: 1; }
+  .rank-name { font-weight: 700; font-size: 0.95rem; }
+  .rank-detail { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+  .rank-score { font-family: 'Space Mono', monospace; font-size: 1rem; font-weight: 700; color: var(--accent); }
+  .rank-bar-wrap { height: 3px; background: var(--surface2); border-radius: 3px; margin-top: 6px; }
+  .rank-bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s ease; }
+
+  /* 프로필 설정 */
+  .profile-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+  }
+  .profile-box label { font-size: 0.8rem; color: var(--text-dim); display: block; margin-bottom: 6px; }
+  .profile-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 0.95rem; outline: none;
+    transition: border-color 0.2s; margin-bottom: 12px;
+  }
+  .profile-input:focus { border-color: var(--accent); }
+  select.profile-input { cursor: pointer; }
+
+  .submit-score-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent2), #f7a86a);
+    border: none; border-radius: var(--radius);
+    color: #1a1000; font-family: 'Gmarket Sans', sans-serif;
+    font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.25s;
+  }
+  .submit-score-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(247,200,106,0.4); }
+  .submit-score-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .rank-empty { text-align: center; color: var(--text-dim); padding: 32px; font-size: 0.9rem; }
+  .rank-loading { text-align: center; color: var(--text-dim); padding: 24px; }
+
+  @media (max-width: 600px) {
+    .day-grid { grid-template-columns: repeat(4,1fr); }
+    .mode-grid { grid-template-columns: 1fr; }
+    .flashcard-scene { height: 240px; }
+    .card-content { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">WORD<span>WISE</span> 4</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onclick="showRanking()" style="background:var(--surface);border:1px solid var(--border);color:var(--text-dim);border-radius:50px;padding:6px 14px;font-size:0.78rem;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">🏆 랭킹</button>
+    <div style="font-size:0.75rem; color:var(--text-dim); font-family:'Space Mono',monospace;">Day 01 – 25</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ── SCREEN 1: SELECT ── -->
+  <div id="screen-select">
+    <div class="screen-title">오늘 공부할 Day를 선택해요</div>
+    <div class="screen-sub">Day를 고르고 학습 모드를 선택하세요</div>
+
+    <div class="day-grid" id="day-grid"></div>
+
+    <div class="screen-title" style="font-size:1.2rem; margin-bottom:16px;">학습 모드</div>
+    <div class="mode-grid">
+      <div class="mode-card" id="mode-flash" onclick="selectMode('flash')">
+        <div class="mode-icon">🃏</div>
+        <div class="mode-name">플래시카드</div>
+        <div class="mode-desc">카드를 뒤집어 뜻을 확인하며<br>자기 자신을 채점해요</div>
+      </div>
+      <div class="mode-card" id="mode-type" onclick="selectMode('type')">
+        <div class="mode-icon">⌨️</div>
+        <div class="mode-name">타이핑 테스트</div>
+        <div class="mode-desc">뜻을 보고 영단어를<br>직접 입력해서 확인해요</div>
+      </div>
+    </div>
+
+    <button class="btn-start" id="start-btn" disabled onclick="startStudy()">시작하기 →</button>
+  </div>
+
+  <!-- ── SCREEN 2: FLASHCARD ── -->
+  <div id="screen-flash">
+    <div class="top-nav">
+      <button class="back-btn" onclick="goHome()">← 홈</button>
+      <span class="nav-info" id="flash-nav-info"></span>
+    </div>
+
+    <div class="direction-toggle">
+      <button class="dir-btn active" id="dir-kr" onclick="setDirection('kr')">한→영</button>
+      <button class="dir-btn" id="dir-en" onclick="setDirection('en')">영→한</button>
+    </div>
+
+    <div class="progress-bar-wrap"><div class="progress-bar" id="flash-progress"></div></div>
+    <div class="card-counter" id="flash-counter"></div>
+
+    <div class="flashcard-scene" onclick="flipCard()">
+      <div class="flashcard" id="flashcard">
+        <div class="card-face card-front">
+          <div class="card-label" id="front-label">문제</div>
+          <div class="card-content" id="front-content"></div>
+          <div class="card-tap">탭하여 정답 확인 ↓</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-label">정답</div>
+          <div class="card-content" id="back-content"></div>
+          <div class="card-hint" id="back-hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flash-controls">
+      <button class="btn-icon danger" onclick="markCard(false)">✗ 몰랐어요</button>
+      <button class="btn-icon" onclick="shuffleAndRestart()">🔀 섞기</button>
+      <button class="btn-icon success" onclick="markCard(true)">✓ 알았어요</button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 3: TYPING TEST ── -->
+  <div id="screen-type">
+    <div class="top-nav">
+      <button class="back-btn" onclick="goHome()">← 홈</button>
+      <span class="nav-info" id="type-nav-info"></span>
+    </div>
+
+    <div class="direction-toggle">
+      <button class="dir-btn active" id="tdir-kr" onclick="setTypeDirection('kr')">한→영 (영단어 입력)</button>
+      <button class="dir-btn" id="tdir-en" onclick="setTypeDirection('en')">영→한 (한글 입력)</button>
+    </div>
+
+    <div class="progress-bar-wrap"><div class="progress-bar" id="type-progress"></div></div>
+    <div class="card-counter" id="type-counter"></div>
+
+    <div class="type-prompt">
+      <div class="prompt-label" id="type-prompt-label">문제</div>
+      <div class="prompt-text" id="type-prompt-text"></div>
+    </div>
+
+    <div class="type-input-wrap">
+      <input class="type-input" id="type-input" placeholder="정답을 입력하세요..."
+        onkeydown="handleTypeKey(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button class="submit-btn" onclick="checkAnswer()">↵</button>
+    </div>
+
+    <div class="feedback hidden" id="type-feedback"></div>
+
+    <div class="type-controls">
+      <button class="btn-icon" onclick="skipWord()">⏭ 건너뛰기</button>
+      <button class="btn-icon" id="btn-first-letter" onclick="showFirstLetter()">🔤 첫 글자</button>
+      <button class="btn-icon" onclick="showHint()">💡 힌트</button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 4: RESULT ── -->
+  <div id="screen-result">
+    <div class="top-nav" style="justify-content:center;">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+    </div>
+    <div class="result-circle">
+      <div class="result-score" id="result-score"></div>
+      <div class="result-label">정답률</div>
+    </div>
+    <div class="result-msg" id="result-msg"></div>
+    <div class="result-sub" id="result-sub"></div>
+
+    <div class="wrong-list" id="wrong-list" style="display:none;">
+      <h3>틀린 단어 복습 📋</h3>
+      <div id="wrong-items"></div>
+    </div>
+
+    <div class="result-btns">
+      <button class="btn-icon" onclick="retryWrong()">🔁 틀린 것만 다시</button>
+      <button class="btn-icon" id="submit-score-btn" onclick="submitScoreToRanking()" style="border-color:var(--accent2);color:var(--accent2);">🏆 점수 등록</button>
+      <button class="btn-icon" onclick="goHome()">🏠 처음으로</button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 5: RANKING ── -->
+  <div id="screen-ranking" style="display:none;" class="rank-screen">
+    <div class="top-nav">
+      <button class="back-btn" onclick="closeRanking()">← 뒤로</button>
+      <span class="nav-info">🏆 랭킹</span>
+    </div>
+
+    <!-- 프로필 미설정시 -->
+    <div id="rank-profile-setup" style="display:none;">
+      <div class="screen-title" style="font-size:1.3rem;">처음이에요! 👋</div>
+      <div class="screen-sub">선생님과 반을 선택하고 이름을 입력해주세요</div>
+      <div class="profile-box">
+        <label>선생님 선택</label>
+        <div id="teacher-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        <label>반 선택</label>
+        <div id="class-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        <label>이름</label>
+        <input class="profile-input" id="setup-name" type="text" placeholder="이름 입력 (최대 6자)" maxlength="6">
+        <button class="submit-score-btn" onclick="saveProfile()">저장하고 시작하기 →</button>
+      </div>
+    </div>
+
+    <!-- 랭킹 본화면 -->
+    <div id="rank-main" style="display:none;">
+      <div style="background:var(--surface);border:1px solid var(--accent2);border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:4px;" id="my-class-label"></div>
+          <div style="font-weight:700;" id="my-name-label"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="resetProfile()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:20px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">변경</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <select class="profile-input" id="rank-day-select" onchange="loadRanking()" style="margin-bottom:0;">
+          <option value="all">전체 합산</option>
+        </select>
+      </div>
+
+      <div class="rank-tabs">
+        <button class="rank-tab active" id="tab-class" onclick="switchRankTab('class')">우리 반 🏫</button>
+        <button class="rank-tab" id="tab-all" onclick="switchRankTab('all')">전체 🌍</button>
+      </div>
+
+      <div id="rank-list-wrap">
+        <div class="rank-loading">불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// WORD DATA  (Day 01 ~ Day 25) — Word Wise 5
+// ─────────────────────────────────────────────
+const VOCAB = {
+  1: [
+    {en:"owe",kr:"(돈·사과·해명 등을) 빚지다, 신세를 지다"},
+    {en:"legend",kr:"전설; 전설적 인물"},
+    {en:"ridiculous",kr:"터무니없는, 어이없는, 말도 안 되는"},
+    {en:"master",kr:"대가, 명인; 완전히 익히다, 터득하다"},
+    {en:"pursue",kr:"(목표·꿈·진로 등을) 부단히 추구하다, 좇다"},
+    {en:"aspect",kr:"측면, 양상"},
+    {en:"civilization",kr:"(고대의) 문명; (편리한 현대의) 문명 세계"},
+    {en:"purchase",kr:"사다, 구입하다; 구매; 구입한 물건"},
+    {en:"sweat",kr:"땀, 땀을 흘리다"},
+    {en:"observe",kr:"주의 깊게 보다, 관찰하다; (규칙·법 등을) 따르다"},
+    {en:"eventually",kr:"(긴 과정 끝에) 마침내, 드디어"},
+    {en:"remote",kr:"(시공간적으로) 멀리 떨어진, 외딴"},
+    {en:"guarantee",kr:"보장[보증]하다, 장담하다; 보장, 보증(서)"},
+    {en:"notion",kr:"개념; (사람들의) 생각, 관념"},
+    {en:"standard",kr:"수준, 기준; 표준; 일반적인, 보편적인"},
+    {en:"ignore",kr:"(사람·충고·전화 등을) 무시하다, 못 본 체하다"},
+    {en:"rank",kr:"(순위에서) ~위를 차지하다, ~수준에 속하다"},
+    {en:"diverse",kr:"여러 다양한, 각양각색의"},
+    {en:"extend",kr:"(기한 등을) 연장하다; (영역을) 넓히다, 확장하다"},
+    {en:"concept",kr:"추상 개념; 구상, 기획"},
+    {en:"allow",kr:"허락하다; ~할 수 있게 하다, 가능하게 하다"},
+    {en:"condition",kr:"(사물·사람의) 물리적 상태; 여건, 환경"},
+    {en:"slogan",kr:"슬로건, 구호, 표어"},
+    {en:"prove",kr:"입증[증명]하다; ~임이 드러나다"},
+    {en:"hilarious",kr:"배꼽 잡게 웃긴, 엄청 웃긴"},
+  ],
+  2: [
+    {en:"crush",kr:"으깨다, 찌그러뜨리다; 짝사랑"},
+    {en:"accurate",kr:"정확한; 정밀한"},
+    {en:"ripe",kr:"(과일 등이) 잘 익은; (시기·상황 등이) 무르익은, 시기 적절한"},
+    {en:"gloomy",kr:"(날씨·장소 등이) 어두운; (기분이) 우울한; (전망이) 암울한"},
+    {en:"myth",kr:"(신·초자연적 존재를 다룬) 신화; 잘못된 믿음, 속설"},
+    {en:"approach",kr:"가까이 다가가다; (문제·과제 등에) 접근하다; 접근법, 방식"},
+    {en:"bother",kr:"귀찮게[성가시게] 하다; 굳이 애쓰다; 성가신 것, 귀찮은 일"},
+    {en:"shallow",kr:"깊이가 얕은; (생각이) 단순하고 깊이가 없는"},
+    {en:"injure",kr:"다치게 하다, 부상을 입히다"},
+    {en:"underline",kr:"밑줄을 긋다; 강조하다, 부각시키다"},
+    {en:"confirm",kr:"(사실임을) 확인하다; (확신을) 굳게 하다, 강화시키다"},
+    {en:"regard",kr:"여기다, 간주하다; 존경; 관심, 고려"},
+    {en:"dynamic",kr:"역동적인, 변화무쌍한; 원기왕성한"},
+    {en:"hostile",kr:"적대적인, 적의를 품은; 적의, 적군의"},
+    {en:"exhaust",kr:"지치게 하다, (자원 등을) 다 써버리다, 고갈시키다"},
+    {en:"pill",kr:"알약, 정제"},
+    {en:"welfare",kr:"안녕, 행복; (정부의) 복지 혜택[지원]"},
+    {en:"vary",kr:"(~에 따라) 다르다, 다양하다; 다양하게 변화를 주다"},
+    {en:"impact",kr:"(강력한) 영향, 효과; 물리적 충격, 타격; 영향을 미치다"},
+    {en:"sorrow",kr:"(깊은) 슬픔, 비애"},
+    {en:"organ",kr:"(신체의) 장기, 기관"},
+    {en:"factor",kr:"(영향을 주는) 요인, 요소"},
+    {en:"miserable",kr:"아주 불행한, 비참한; (수준이) 형편없는, 처참한"},
+    {en:"philosophy",kr:"철학, 사상, 이념체계; (개인의) 신조, 인생관"},
+    {en:"destruction",kr:"파괴; 파멸, 파탄"},
+  ],
+  3: [
+    {en:"essential",kr:"꼭 필요한, 없어서는 안 될; 매우 중요한"},
+    {en:"enthusiasm",kr:"열정, 의욕, 적극적 태도"},
+    {en:"gorgeous",kr:"(겉모습이) 눈부시게 아름다운, 아주 멋진, 근사한"},
+    {en:"complicated",kr:"(구조·절차·상황 등이) 복잡한, 단순하지 않은"},
+    {en:"aware",kr:"(사실을) 알고 있는; 잘 의식하고 있는"},
+    {en:"criticize",kr:"(잘못을) 비난하다, 비판하다; (예술 작품을) 비평하다"},
+    {en:"distinguish",kr:"(차이를) 구별[구분]하다, 식별하다"},
+    {en:"moist",kr:"(피부·음식·토양 등이) 촉촉한, 습기가 적당한"},
+    {en:"demand",kr:"강하게 요구[요청]하다; 필요로 하다; 강한 요구"},
+    {en:"positive",kr:"긍정적인, 낙관적인; 확신하는, 확실한; (검사 결과가) 양성인"},
+    {en:"notable",kr:"뛰어난; 두드러진"},
+    {en:"consider",kr:"신중히 생각하다, 고려하다; ~라고 여기다[간주하다]"},
+    {en:"request",kr:"요청, 요구; (공식) 요청하다, 정중히 부탁하다"},
+    {en:"overhear",kr:"의도치 않게 듣다, 우연히 엿듣다"},
+    {en:"boast",kr:"자랑하다, 뽐내다; (자랑거리를) 보유하다"},
+    {en:"labor",kr:"노동; 노동자 집단; (몸을 써서) 열심히 일하다"},
+    {en:"risk",kr:"위험, 위험의 가능성; ~을 잃을 위험을 감수하다"},
+    {en:"opportunity",kr:"(좋은) 기회"},
+    {en:"destination",kr:"도착지, 목적지"},
+    {en:"spectacle",kr:"멋진 광경, 장관; 이목을 끄는 사건, 구경거리"},
+    {en:"gap",kr:"벌어진 틈; 차이, 격차"},
+    {en:"pharmacy",kr:"약국"},
+    {en:"ideal",kr:"이상적인, 완벽한; (추구하는) 이상, 이상적 가치[목표]"},
+    {en:"contagious",kr:"전염성의, 전염되는"},
+    {en:"initially",kr:"처음에는"},
+  ],
+  4: [
+    {en:"prey",kr:"먹잇감; 희생양, 피해자; (~을) 잡아먹다"},
+    {en:"persistent",kr:"끈덕진, 끈기 있는; (문제가) 지속되는"},
+    {en:"extreme",kr:"극도의, 정도가 아주 심한; 극단적인"},
+    {en:"murder",kr:"(고의적) 살인, 살해; 살해하다"},
+    {en:"annoy",kr:"짜증나게 하다"},
+    {en:"concentrate",kr:"(주의를) 집중하다; 집중시키다, 한곳으로 모으다"},
+    {en:"twilight",kr:"(해가 뜨거나 지기 전의) 희미한 빛, 어스름; 황혼기"},
+    {en:"hire",kr:"고용하다, 채용하다"},
+    {en:"extensive",kr:"넓은, 광범위한, 폭넓은"},
+    {en:"protest",kr:"항의, 반대 시위; 항의하다, 반대를 표현하다"},
+    {en:"unite",kr:"통합하다, 하나로 합치다; 단합하다, 하나로 뭉치다"},
+    {en:"interrupt",kr:"(말 도중에) 끼어들다, 방해하다, 중단시키다"},
+    {en:"overcome",kr:"이겨내다, 극복하다"},
+    {en:"adapt",kr:"적응하다, 맞게 바꾸다"},
+    {en:"stubborn",kr:"고집 센, 완고한"},
+    {en:"dump",kr:"버리다, 내던지다; 쓰레기장, 폐기장"},
+    {en:"curve",kr:"곡선, 굽은 길; (모양이) 휘다, 곡선을 이루다"},
+    {en:"barely",kr:"간신히, 겨우; 거의 ~하지 않아"},
+    {en:"persuade",kr:"설득하다, 설득해서 ~하게 하다"},
+    {en:"panic",kr:"공황상태; 공황에 빠지다, 공포에 질리다"},
+    {en:"rate",kr:"비율, 속도, 요금, 급여"},
+    {en:"damp",kr:"눅눅한, 살짝 축축한"},
+    {en:"ritual",kr:"(종교적) 의식; 습관적 행위; 의식에 따른"},
+    {en:"surface",kr:"표면, 외관; 수면 위로 떠오르다, 드러나다"},
+    {en:"rarely",kr:"드물게, (~하는 경우가) 거의 없어"},
+  ],
+  5: [
+    {en:"fade away",kr:"(소리·빛·기억 등이 희미해져서) 사라지다"},
+    {en:"take away",kr:"가져가다, 빼앗다"},
+    {en:"account for",kr:"(이유 등을) 설명하다, 해명하다; (전체 중에서) 차지하다"},
+    {en:"vote for",kr:"~에 투표하다; ~에 찬성표를 던지다"},
+    {en:"stay away from",kr:"~에서 떨어져 있다; ~을 피하다, 멀리하다"},
+    {en:"give away",kr:"무료로 주다"},
+    {en:"call for",kr:"(공식적으로 강하게) 촉구하다; 필요로 하다, 요하다"},
+    {en:"turn a deaf ear to",kr:"~를 무시하다, (상대의 말을) 듣지 않다"},
+    {en:"prepare for",kr:"~에 대비하다, ~에 대비해 준비하다"},
+    {en:"pay for",kr:"~에 대해 값을 지불하다, ~에 대해 대가를 치르다"},
+    {en:"blow away",kr:"~을 날려버리다; 깜짝 놀라게 하다, 감동시키다; 압승하다"},
+    {en:"turn a blind eye to",kr:"~을 못 본 척하다, 외면하다; 묵인하다"},
+    {en:"get away",kr:"도망치다; ~으로 처벌받지 않고 넘어가다"},
+    {en:"wash away",kr:"씻어내다, 휩쓸어가다; (감정·걱정 등을) 사라지게 하다"},
+    {en:"apply for",kr:"지원하다, 신청하다"},
+    {en:"turn red",kr:"(감정에 의해 얼굴 등이) 빨개지다"},
+    {en:"put into action",kr:"(계획 등을) 실행에 옮기다"},
+    {en:"turn the tide",kr:"(판세를) 바꾸다, 역전시키다"},
+    {en:"turn one's back on",kr:"~에게 등을 돌리다, 외면하다"},
+    {en:"put emphasis on",kr:"~을 강조하다"},
+    {en:"put an end to",kr:"~을 끝내다, ~에 마침표를 찍다"},
+    {en:"take turns",kr:"교대로 ~하다, 번갈아 ~하다"},
+    {en:"put oneself in someone else's shoes",kr:"다른 사람의 입장이 돼보다"},
+    {en:"toss and turn",kr:"뒤척이느라 잠을 못 자다, 잠을 설치다"},
+    {en:"put on weight",kr:"살이 찌다"},
+  ],
+  6: [
+    {en:"lack",kr:"부족, 결핍; ~이 부족하다, 없다"},
+    {en:"disposal",kr:"처리, 폐기; 처분 권한"},
+    {en:"donate",kr:"(돈·장기·혈액 등을) 기부하다, 기증하다"},
+    {en:"define",kr:"(뜻을) 정의하다; 명확히 하다, 규정하다"},
+    {en:"recognize",kr:"(무엇인지) 알아보다, 알아차리다; 공식 승인하다"},
+    {en:"clue",kr:"(문제 해결의) 실마리, 단서"},
+    {en:"scarce",kr:"(자원이) 희소한, (양이 부족해) 구하기 어려운"},
+    {en:"tense",kr:"긴장한, 불안한; 팽팽히 당겨진"},
+    {en:"accompany",kr:"동행하다; 동시에 일어나다, 수반되다"},
+    {en:"generate",kr:"만들어내다, 창출하다; 유발하다"},
+    {en:"extinct",kr:"멸종한, 더 이상 존재하지 않는; 더 이상 활동하지 않는"},
+    {en:"swear",kr:"욕설을 하다; 맹세하다"},
+    {en:"yawn",kr:"하품하다; 하품"},
+    {en:"permit",kr:"허락[허가]하다; 묵인하다; 허가증, 면허증, 승인서"},
+    {en:"revolution",kr:"혁명, 큰 변화"},
+    {en:"outfit",kr:"한 벌의 옷, 옷차림"},
+    {en:"currency",kr:"통화, 화폐단위"},
+    {en:"pension",kr:"(퇴직) 연금"},
+    {en:"gratitude",kr:"감사한 마음, 고마움"},
+    {en:"circumstance",kr:"상황, 환경; (개인의) 형편, 처지"},
+    {en:"expert",kr:"전문가"},
+    {en:"plague",kr:"전염병; 재앙; (오래 끈질기게) 괴롭히다; 고통을 주다"},
+    {en:"instruction",kr:"지시, 명령; 설명서, 사용법 안내"},
+    {en:"maximum",kr:"최대치, 최고치; 최대의, 최고의"},
+    {en:"abroad",kr:"해외에, 해외로"},
+  ],
+  7: [
+    {en:"normal",kr:"평범한, 보통의; 정상적인; 비정상적인; 정상, 표준 상태"},
+    {en:"participate",kr:"참여하다, 참가하다"},
+    {en:"thrifty",kr:"절약하는, 검소한"},
+    {en:"automatic",kr:"자동의, 자동으로 움직이는; (반응이) 자동반사적인"},
+    {en:"suspicious",kr:"의심하는, 수상쩍게 여기는; 수상한, 의심스러운"},
+    {en:"elegant",kr:"우아한, 세련된"},
+    {en:"delicate",kr:"연약한; 섬세한, 정교한; 민감한"},
+    {en:"stiff",kr:"뻣뻣한, 굳은; (태도·표정이) 딱딱한, 경직된; 치열한"},
+    {en:"terrify",kr:"무섭게 하다, 공포에 떨게 하다"},
+    {en:"spoil",kr:"망치다; (아이를) 버릇없게 만들다; (음식이) 상하다"},
+    {en:"replace",kr:"대신하다, 대체하다"},
+    {en:"arrange",kr:"계획하다, 준비하다; (물건 등을) 배치[배열]하다"},
+    {en:"represent",kr:"(사람·조직을) 대표하다; 나타내다, 상징하다"},
+    {en:"contain",kr:"(내용물로) 들어 있다; 막다, 억제하다"},
+    {en:"debate",kr:"토론, 논쟁; 토론하다, 논의하다"},
+    {en:"innocent",kr:"잘못이 없는, 결백한; 순수한, 순진한"},
+    {en:"load",kr:"짐을 싣다; 짐; 부담"},
+    {en:"rather",kr:"(~보다) 차라리, ~대신; 생각보다"},
+    {en:"well-being",kr:"안녕, 안정된 삶"},
+    {en:"volcano",kr:"화산; 분화구"},
+    {en:"pile",kr:"쌓아 올린 것; 다량; 쌓이다; 우르르 몰려들다; 쌓다"},
+    {en:"influence",kr:"영향(력); ~에 영향을 미치다"},
+    {en:"crisis",kr:"위기; 고비"},
+    {en:"geography",kr:"지리, 지리적 특성, 지형; 지리학"},
+    {en:"bomb",kr:"폭탄, 폭발물; 폭격하다"},
+  ],
+  8: [
+    {en:"ultimate",kr:"궁극적인, 최고의; 최종의"},
+    {en:"nonsense",kr:"터무니없는 말, 헛소리"},
+    {en:"pardon",kr:"용서하다, 사면하다; 용서"},
+    {en:"periodical",kr:"정기 간행물, 잡지"},
+    {en:"cruise",kr:"(배·비행기가) 순항하다; 일정 속도로 달리다"},
+    {en:"costume",kr:"(특정시대·직업·문화를 보여주는) 복장, 의상"},
+    {en:"emphasize",kr:"강조하다, 역설하다"},
+    {en:"inherit",kr:"상속받다, 물려받다"},
+    {en:"striking",kr:"강렬한, 매우 인상적인; 두드러진, 뚜렷한"},
+    {en:"register",kr:"등록하다, 신청하다; 표시하다, 나타내다"},
+    {en:"shift",kr:"바뀌다, 이동하다, 교대 근무; 변화, 이동"},
+    {en:"disturb",kr:"방해하다; 어지럽히다; 동요시키다"},
+    {en:"experiment",kr:"실험; 실험하다; 시도해보다"},
+    {en:"liquid",kr:"액체; 액체 상태의"},
+    {en:"domestic",kr:"자국의; 가정의, 집안의"},
+    {en:"relatively",kr:"비교적, 상대적으로"},
+    {en:"autobiography",kr:"자서전"},
+    {en:"track",kr:"길; 선로; 지나간 흔적; 추적하다, 따라가다"},
+    {en:"peer",kr:"(나이·지위·능력이) 비슷한 사람, 또래, 동료"},
+    {en:"stuff",kr:"(정확히 구체화하지 않은) 물건들; 가득 넣다"},
+    {en:"systematic",kr:"체계적인, 조직적인; 계획적인, 조직적인"},
+    {en:"crew",kr:"승무원 전체; (같은 일을 하는) 팀"},
+    {en:"credit",kr:"신용, 외상 거래; 인정; ~에게 공로를 돌리다, 높이 평가하다"},
+    {en:"fury",kr:"엄청난 분노, 격분; (기세가) 맹렬함, 격렬함"},
+    {en:"hospitality",kr:"친절한 접객, 환대; 숙박서비스업"},
+  ],
+  9: [
+    {en:"combine",kr:"결합하다, 합치다; 결합되다, 하나가 되다"},
+    {en:"rural",kr:"시골의, 농촌의"},
+    {en:"secondhand",kr:"중고의, 헌"},
+    {en:"immigrate",kr:"이민 오다, 이주하다"},
+    {en:"inspire",kr:"(~하고 싶은) 동기를 부여하다; 아이디어를 주다"},
+    {en:"erupt",kr:"(화산이) 폭발하다, 분출하다; (감정을) 터트리다"},
+    {en:"bound",kr:"~할 것이 틀림없는; ~로 향하는"},
+    {en:"yearn",kr:"간절히 바라다, 갈망하다"},
+    {en:"sophisticated",kr:"세련된, 안목 있는; 고도로 발전된"},
+    {en:"preview",kr:"시사(회); 예고편; 미리 보다; 미리 공개하다"},
+    {en:"decay",kr:"썩다, 부패하다; 썩음; 타락, 쇠퇴"},
+    {en:"artificial",kr:"인공의, 인조의"},
+    {en:"operate",kr:"작동하다; 작동시키다; 운영하다; 수술하다"},
+    {en:"sneeze",kr:"재채기하다; 재채기"},
+    {en:"govern",kr:"통치하다, 다스리다; 지배하다, 통제하다"},
+    {en:"authority",kr:"권한; (정부의) 당국, 기관; 권위자"},
+    {en:"pole",kr:"장대, 기둥; 극지(북극, 남극)"},
+    {en:"fancy",kr:"좋아하다, 원하다; 화려한, 고급의"},
+    {en:"access",kr:"접근, 이용, 출입; 접근하다, 이용하다"},
+    {en:"penalty",kr:"(위반에 대한) 처벌, 징계; 벌금"},
+    {en:"companion",kr:"동반자, 반려; 동물[식물]"},
+    {en:"uneasy",kr:"마음이 편치 않은, 걱정되는"},
+    {en:"substance",kr:"물질; 재료; 실질적 내용, 알맹이"},
+    {en:"range",kr:"범위, 폭, 영역; ~에 이르다, 걸쳐 있다"},
+    {en:"infant",kr:"영아, 갓난아기; 영아의; (발달) 초기의"},
+  ],
+  10: [
+    {en:"point out",kr:"지적하다, (알아차리지 못한 점을) 짚어주다"},
+    {en:"eat up",kr:"(남기지 않고) 다 먹다"},
+    {en:"turn up",kr:"(눈앞에) 나타나다; (소리·온도 등을) 높이다"},
+    {en:"give up",kr:"(시도·노력 등을) 포기하다; 양보하다"},
+    {en:"work out",kr:"(일이) 잘 풀리다, 알아내다, (답을) 도출해내다; 운동하다"},
+    {en:"break out",kr:"(전쟁·질병·사건이) 갑자기 발생하다; (감옥에서) 탈출하다"},
+    {en:"turn out",kr:"결국 ~로 드러나다[밝혀지다], 알고 보니~이었다"},
+    {en:"make up",kr:"구성하다, 이루다; 지어내다, 꾸며내다; 화해하다"},
+    {en:"clean up",kr:"깨끗이 치우다, 청소하다"},
+    {en:"use up",kr:"다 써버리다, 소모하다"},
+    {en:"meet the deadline",kr:"마감 기한을 맞추다"},
+    {en:"carry out",kr:"실행하다, 실시하다; 수행하다"},
+    {en:"figure out",kr:"이해하다, 알아내다"},
+    {en:"pick up",kr:"집어 들다; 데리러 가다; 습득하다; 회복하다, 좋아지다"},
+    {en:"meet the needs/requirements",kr:"필요를/요건을 충족시키다"},
+    {en:"bring ~ to an end",kr:"~을 종결 짓다"},
+    {en:"bring ~ to life",kr:"생명을[생기를] 불어넣다"},
+    {en:"bring ~ under control",kr:"~을 진정시키다, 통제하다, 진압하다"},
+    {en:"bring about",kr:"(변화·결과를) 일으키다, 초래하다"},
+    {en:"bring back",kr:"(추억·과거 등을) 되살리다, 회상시키다"},
+    {en:"bring down",kr:"(가격·수치를) 떨어뜨리다; 쓰러뜨리다; 우울하게 하다"},
+    {en:"bring in",kr:"(새로운 물건·사람을) 도입하다; (소득·투자를) 가져오다"},
+    {en:"bring out",kr:"(특징·성질을) 끄집어내다, 돋보이게 하다"},
+    {en:"bring to mind",kr:"~을 생각나게 하다, 떠오르게 하다"},
+    {en:"bring together",kr:"한자리에 모으다, 하나로 결합시키다"},
+    {en:"bring up",kr:"(화제를) 꺼내다"},
+    {en:"meet halfway",kr:"(의견차를) 타협하다, 절충하다"},
+    {en:"meet one's eyes",kr:"눈을 마주치다, 똑바로 응시하다"},
+    {en:"meet the challenge",kr:"도전에 맞서다, 잘 해내다"},
+    {en:"meet with someone",kr:"(공적으로·업무상) 만나다, 회의를 갖다"},
+  ],
+  11: [
+    {en:"intense",kr:"강렬한; 치열한"},
+    {en:"scholar",kr:"학자"},
+    {en:"pioneer",kr:"개척자, 선구자; 선구자 역할을 하다, 개척하다"},
+    {en:"conclude",kr:"끝내다, 마치다; 결론을 내리다"},
+    {en:"attract",kr:"끌어당기다; (주의·흥미를) 끌다"},
+    {en:"cherish",kr:"소중히 간직하다, 소중히 여기다"},
+    {en:"ease",kr:"쉬움; 편안함; (통증 등을) 완화하다"},
+    {en:"split",kr:"쪼개다, 나누다; 나뉘다, 갈라지다"},
+    {en:"odd",kr:"이상한, 특이한, 좀 엉뚱한; 홀수의"},
+    {en:"dignity",kr:"존엄, 품격; 자기존중, 자존감"},
+    {en:"latest",kr:"최신의, 가장 최근의"},
+    {en:"desperate",kr:"간절한, 절실한; (상황이) 필사적인, 절망적인"},
+    {en:"outline",kr:"개요, 윤곽; 요약; 요약해 제시하다, 개요를 설명하다"},
+    {en:"nod",kr:"고개를 끄덕이다; 꾸벅꾸벅 졸다; 끄덕임"},
+    {en:"claim",kr:"주장하다; 요구하다; 수령하다; 앗아가다; 주장; 요구, 청구"},
+    {en:"reputation",kr:"명성, 평판"},
+    {en:"breeze",kr:"산들바람, 미풍; 아주 쉬운 일"},
+    {en:"state",kr:"(글·말로) 명시하다"},
+    {en:"shortcut",kr:"지름길"},
+    {en:"pavement",kr:"(미국) 포장도로; (영국) 인도, 보도"},
+    {en:"ecosystem",kr:"생태계"},
+    {en:"unexpected",kr:"예상치 못한, 뜻밖의"},
+    {en:"divorce",kr:"이혼; 이혼하다"},
+    {en:"organize",kr:"정리하다, 배열하다; 기획[준비]하다"},
+    {en:"tragic",kr:"비극적인, 안타깝기 그지없는; 비극의"},
+  ],
+  12: [
+    {en:"discount",kr:"(가격을) 할인하다; 할인, 가격 인하"},
+    {en:"infamous",kr:"악명 높은, 평판이 나쁜"},
+    {en:"commute",kr:"통근하다, 통학하다; 통근(길), 통학"},
+    {en:"ache",kr:"(신체 부위가) 아프다, 쑤시다; 아픔, 통증"},
+    {en:"absolute",kr:"(권력이) 절대적인; 완전한, 확실한"},
+    {en:"possess",kr:"(물건을) 소유하다; (재능 등을) 지니다"},
+    {en:"heal",kr:"낫다, 회복하다; 고치다, 치유하다"},
+    {en:"pure",kr:"순수한, 이물질이 섞이지 않은, 진짜의"},
+    {en:"acknowledge",kr:"시인하다, 인정하다; ~에 감사를 표시하다"},
+    {en:"depressed",kr:"우울한, 의기소침한; (경제 상황이) 불황인"},
+    {en:"fluent",kr:"유창한, 막힘없이 자연스러운"},
+    {en:"suicide",kr:"자살"},
+    {en:"confident",kr:"자신감 있는; 확신하는, 굳게 믿는"},
+    {en:"rational",kr:"합리적인, 이성적인; 비합리적인"},
+    {en:"utilize",kr:"활용하다, 효과적으로 이용하다"},
+    {en:"pedestrian",kr:"(교통) 보행자; 보행자의"},
+    {en:"curriculum",kr:"교과과정, 교육과정"},
+    {en:"suburb",kr:"도시 외곽의 주거지역, 교외지역"},
+    {en:"comment",kr:"논평하다, 의견을 말하다; 논평, 의견"},
+    {en:"tribute",kr:"(공로·희생·영향력에 대한) 경의, 헌사"},
+    {en:"rely",kr:"(~에) 의지하다, ~을 믿다; 의존하다"},
+    {en:"whereas",kr:"(두 사실의 비교, 대조) ~인 반면에, 그러나"},
+    {en:"viewpoint",kr:"관점, 시각, 견해"},
+    {en:"spouse",kr:"배우자 (남편 또는 아내)"},
+    {en:"prose",kr:"산문"},
+  ],
+  13: [
+    {en:"appeal",kr:"~의 마음을 끌다; ~에게 호소하다; 매력; 간청, 호소"},
+    {en:"tide",kr:"조수, 밀물과 썰물; 흐름, 경향"},
+    {en:"noble",kr:"(성품이) 고귀한; 귀족의; 귀족"},
+    {en:"passion",kr:"열정, 강한 흥미, 몰입"},
+    {en:"union",kr:"결합, 연합; 통합체; 노동조합"},
+    {en:"specialize",kr:"~을 전문적으로 다루다, ~에 주력하다"},
+    {en:"remind",kr:"생각나게 하다; 상기시키다"},
+    {en:"supply",kr:"공급하다, 제공하다; 공급; 비축량, 물자"},
+    {en:"identify",kr:"(~의 신원·정체를) 확인하다; 찾아내다, 밝혀내다"},
+    {en:"occasion",kr:"(어떤 일이 일어나는) 때, 경우; (특별한) 행사, 기념일"},
+    {en:"straightforward",kr:"간단한, 명쾌한; (말·행동이) 솔직한"},
+    {en:"atmosphere",kr:"대기, 공기층; (장소·상황의) 분위기"},
+    {en:"link",kr:"연관시키다, 관련 짓다; 연결, 관계, 관련성"},
+    {en:"institute",kr:"연구기관, 협회; (제도·정책 등을) 정식 도입하다, 시행하다"},
+    {en:"academic",kr:"학문의; 학구적인; 학자, 연구자"},
+    {en:"disagree",kr:"의견이 다르다, 동의하지 않다"},
+    {en:"employment",kr:"고용; 취업 상태"},
+    {en:"repeatedly",kr:"반복적으로, 거듭"},
+    {en:"revenge",kr:"복수; 보복; 복수하다; 보복하다"},
+    {en:"mission",kr:"(완수해야 할) 임무, 사명; 우주 탐사 임무"},
+    {en:"policy",kr:"(정부·조직의) 정책; 방침, 원칙"},
+    {en:"occur",kr:"(사건이) 일어나다; (생각이) 문득 떠오르다"},
+    {en:"bright",kr:"빛나는, 밝은; (인재가) 똑똑한; 희망찬, 낙관적인"},
+    {en:"generalize",kr:"일반화하다; 단정짓다"},
+    {en:"sort",kr:"종류, 부류; 분류하다, 정리하다"},
+  ],
+  14: [
+    {en:"famine",kr:"기근, 식량 부족"},
+    {en:"oblige",kr:"~에게 의무를 지우다; 호의를 베풀다"},
+    {en:"imaginary",kr:"상상 속의, 가상의"},
+    {en:"mandate",kr:"권한, 위임; 명령하다, 의무화하다"},
+    {en:"crime",kr:"범죄; 죄악"},
+    {en:"oxygen",kr:"산소"},
+    {en:"astronomy",kr:"천문학"},
+    {en:"conflict",kr:"갈등, 대립; 분쟁; 충돌하다, 대립하다"},
+    {en:"resemble",kr:"닮다, 비슷하다"},
+    {en:"dense",kr:"빽빽한, 밀집한, 밀도가 높은"},
+    {en:"stable",kr:"안정된, 변화 없이 유지되는, 견고한"},
+    {en:"dominate",kr:"우세하다, 주도하다; 장악하다"},
+    {en:"publish",kr:"출판하다, 발행하다; 발표하다, 공개하다"},
+    {en:"brilliant",kr:"탁월한, 대단한; 밝게 빛나는, 눈부신"},
+    {en:"scent",kr:"향기, 냄새; 감지하다"},
+    {en:"apologize",kr:"사과하다, 사죄하다"},
+    {en:"rust",kr:"(금속의) 녹; 녹슬다, 부식되다; (솜씨·실력이) 무뎌지다"},
+    {en:"election",kr:"선거, 선출"},
+    {en:"hardship",kr:"어려움, 고난, 역경"},
+    {en:"outlook",kr:"(미래에 대한) 전망; 관점, 태도"},
+    {en:"manufacture",kr:"(공장에서) 제조하다, 생산하다; 제조"},
+    {en:"privilege",kr:"특권, 특별 혜택; 영예, 영광"},
+    {en:"scold",kr:"꾸짖다, 야단치다"},
+    {en:"property",kr:"재산; 부동산; (물질의) 특성, 성질"},
+    {en:"jam",kr:"정체, 막힘; 막히다; (사람·물건이) 꽉 들어차다"},
+  ],
+  15: [
+    {en:"speak volumes (about)",kr:"(~에 대해) 말하지 않아도 많은 것을 보여주다"},
+    {en:"hold back",kr:"(감정을) 억누르다, 참다; (발전·진행을) 막다, 지연시키다"},
+    {en:"think back",kr:"(과거를) 돌이켜 생각하다, 회상하다, 떠올리다"},
+    {en:"speak out",kr:"(문제·불의에 맞서) 목소리를 내다; 항의하다"},
+    {en:"cut back (on)",kr:"(섭취량·지출 등을) 줄이다"},
+    {en:"close down",kr:"(완전히) 폐업하다, 문을 닫다"},
+    {en:"get back",kr:"(집으로) 돌아오다; (일상 등으로) 돌아가다; 되찾다"},
+    {en:"take back",kr:"(했던 말을) 취소하다, 철회하다; 떠오르게 하다"},
+    {en:"speak for",kr:"~을 대신해 말하다, 대변하다"},
+    {en:"break down",kr:"고장나다, 부서지다; (감정이) 무너지다; 결렬되다, 무산되다"},
+    {en:"so to speak",kr:"말하자면, 소위"},
+    {en:"slow down",kr:"속도를 늦추다; (성장이) 둔화되다"},
+    {en:"let down",kr:"실망시키다"},
+    {en:"settle down",kr:"익숙해지다, 안정감을 찾다; (흥분·소란을) 가라앉히다; 정착하다"},
+    {en:"speak up",kr:"주저하지 않고 큰소리로 말하다"},
+    {en:"think ahead (to)",kr:"(~을) 한발 앞서서 생각하다, 미리 계획하다"},
+    {en:"think about",kr:"(단순히 마음속으로 떠올리며) ~에 대해 생각하다, 고민하다"},
+    {en:"think highly of",kr:"(사람의 성격·능력·업적 등을) 높이/좋게 평가하다"},
+    {en:"think of",kr:"(순간적으로) 떠올리다, 생각이 나다"},
+    {en:"speak well/ill of",kr:"~를 칭찬하다/험담하다"},
+    {en:"can't speak highly enough of",kr:"~을 아무리 칭찬해도 부족하다"},
+    {en:"think over",kr:"(결정·제안 등을) 신중히 검토하다, 숙고하다"},
+    {en:"think twice",kr:"심사숙고하다, 신중히 생각하다"},
+    {en:"actions speak louder than words",kr:"말보다 행동이 중요하다"},
+    {en:"think outside the box",kr:"사고의 틀을 깨다, 창의적으로 생각하다"},
+    {en:"speak of the devil",kr:"호랑이도 제 말하면 온다더니"},
+  ],
+  16: [
+    {en:"dramatic",kr:"극적인, 놀랍고도 급격한"},
+    {en:"decade",kr:"10년"},
+    {en:"tend",kr:"~하는 경향이 있다, ~하기 쉽다"},
+    {en:"accent",kr:"(사람의) 억양, 말투; (단어의) 강세"},
+    {en:"prime",kr:"주요한; 대표적인; 전성기, 한창 때"},
+    {en:"strengthen",kr:"강화하다, 튼튼하게 하다"},
+    {en:"lean",kr:"기대다; 군살 없는; (육류가) 지방이 적은; 수확이 적은"},
+    {en:"refresh",kr:"상쾌하게 하다; 떠올리다; (화면을) 새로고침 하다"},
+    {en:"vision",kr:"시력; 미래에 대한 비전, 목표의식"},
+    {en:"actual",kr:"실제의, 진짜의"},
+    {en:"challenge",kr:"어려운 일, 난관; 도전하다, 대항하다"},
+    {en:"nutrition",kr:"영양, 영양 공급[섭취]"},
+    {en:"conscious",kr:"의식이 있는; 의식하는, 신경을 쓰는"},
+    {en:"empire",kr:"제국, 대제국; 규모나 영향력이 큰 기업"},
+    {en:"involve",kr:"포함하다, 수반하다; (사건·사고에) 연루[관여]시키다"},
+    {en:"democracy",kr:"민주주의, 민주정치"},
+    {en:"sentimental",kr:"감상적인, 쉽게 감상에 젖는"},
+    {en:"capable",kr:"~할 능력을 갖춘; 유능한, 능력 있는"},
+    {en:"fossil",kr:"화석"},
+    {en:"overseas",kr:"해외로; 해외의"},
+    {en:"reflect",kr:"(빛·소리를) 반사하다; 반영하다; (~을) 되돌아보다, 성찰하다"},
+    {en:"moreover",kr:"(앞서 말한 내용에 추가할 때) 게다가, 더구나"},
+    {en:"pulse",kr:"맥박, 심장박동; 규칙적인 진동[파동]; 활력, 생동감"},
+    {en:"struggle",kr:"안간힘을 쓰다; 어려움을 겪다; 힘겨운 싸움, 고난"},
+    {en:"proper",kr:"적절한, 올바른, 알맞은"},
+  ],
+  17: [
+    {en:"humidity",kr:"습기, 습도"},
+    {en:"scratch",kr:"긁다, 긁어서 상처 내다; 긁힌 자국, 상처"},
+    {en:"physical",kr:"신체의, 몸과 관련된; 물리적인, 보거나 만질 수 있는"},
+    {en:"beware",kr:"조심하다, 주의[경계]하다"},
+    {en:"unit",kr:"(수·길이·무게 등) 단위; 하나의 조직"},
+    {en:"devote",kr:"(시간·노력 등을) 쏟다; 헌신하다"},
+    {en:"apply",kr:"~을 신청하다; ~에 지원하다; (~에) 적용하다"},
+    {en:"convince",kr:"납득시키다, 확신시키다"},
+    {en:"trap",kr:"덫, 함정; 갇히게 하다, 고립시키다"},
+    {en:"drain",kr:"물을 빼다; 기운 빠지게 하다; 배수구; 축내는 것"},
+    {en:"slide",kr:"미끄러지다; 매끄럽게[티 안 나게] 움직이다"},
+    {en:"ironic",kr:"아이러니한, 모순적인"},
+    {en:"estimate",kr:"어림잡다, 추정하다; 추정치, 견적"},
+    {en:"progress",kr:"진전; 진행; 진행되다; 진전되다"},
+    {en:"fragrant",kr:"향기로운, 향긋한"},
+    {en:"cargo",kr:"화물"},
+    {en:"mercy",kr:"자비, 관용"},
+    {en:"scream",kr:"비명을 지르다; 외치다; 외침; 비명"},
+    {en:"widespread",kr:"광범위한, 널리 퍼진"},
+    {en:"military",kr:"군대의, 군사적인; 군대, 군인 전체"},
+    {en:"overlook",kr:"놓치다, 간과하다; (위에서) 내려다보다"},
+    {en:"beforehand",kr:"사전에, 미리"},
+    {en:"transport",kr:"운송하다, 옮기다; 운송, 운송수단"},
+    {en:"dairy",kr:"유제품의, 낙농의; 유제품"},
+    {en:"epidemic",kr:"전염병; 급속히 퍼지는 현상; 유행성의"},
+  ],
+  18: [
+    {en:"quote",kr:"인용하다; 인용구"},
+    {en:"species",kr:"(생물학) 종, 생물의 종류"},
+    {en:"dine",kr:"정찬을 먹다, 저녁 식사를 하다"},
+    {en:"archeology",kr:"고고학"},
+    {en:"caution",kr:"주의, 조심; 신중함; 주의를 주다, 경고하다"},
+    {en:"originate",kr:"~에서 기원[유래]하다; ~에서 시작되다"},
+    {en:"suffer",kr:"시달리다, 앓다; 겪다, 당하다"},
+    {en:"issue",kr:"논의가 필요한 문제, 쟁점; 발표하다; 발행하다, 발급하다"},
+    {en:"legal",kr:"법률(상)의; 합법적인"},
+    {en:"nervous",kr:"불안한, 초조한, 긴장되는"},
+    {en:"secure",kr:"손에 넣다, 확보하다; 안전한, 안심이 되는"},
+    {en:"deposit",kr:"예치하다, 입금하다; 예금; 보증금"},
+    {en:"financial",kr:"재정적인, 금융의"},
+    {en:"promote",kr:"촉진하다, 장려하다; 승진시키다"},
+    {en:"remedy",kr:"치료법; 해결책"},
+    {en:"interior",kr:"내부의; 실내의; 실내; 내륙"},
+    {en:"expose",kr:"(~에) 노출시키다; 드러내다"},
+    {en:"reasonable",kr:"이치에 맞는, 합리적인; (가격이) 적당한"},
+    {en:"code",kr:"규칙, 규율; 암호, 기호"},
+    {en:"pupil",kr:"(초중등) 학생, 제자"},
+    {en:"plain",kr:"꾸밈없는, 분명한, 명백한; 평원, 평야"},
+    {en:"defeat",kr:"패배시키다; 패배"},
+    {en:"antique",kr:"골동품; 오래되고 귀한"},
+    {en:"temporary",kr:"일시적인, 임시의"},
+    {en:"symptom",kr:"증상; 징후"},
+  ],
+  19: [
+    {en:"addict",kr:"중독시키다; 중독된 사람; ~광"},
+    {en:"drastic",kr:"과감한, 강도 높은, 대대적인"},
+    {en:"toward",kr:"(방향, 목적) ~쪽으로, ~을 향하여; (태도) ~에 대해"},
+    {en:"desire",kr:"욕망, 열망; 바라다, 원하다"},
+    {en:"adjust",kr:"조정하다, 약간 수정하다; 익숙해지다"},
+    {en:"version",kr:"(형태·관점·해석 등이 다른) 버전, ~판"},
+    {en:"mend",kr:"고치다, 선하다; (관계 등을) 회복하다"},
+    {en:"memorial",kr:"기념관, 기념비; 추모식; 기념하는, 기리는"},
+    {en:"satisfaction",kr:"만족감; 충족, 달성"},
+    {en:"ethnic",kr:"민족의; 민족의 전통적인"},
+    {en:"spot",kr:"바로 알아보다, 즉시 발견하다; 자리점; 점"},
+    {en:"clumsy",kr:"어설픈, 칠칠맞지 못한; 둔한, 눈치 없는"},
+    {en:"freeze",kr:"얼다; (몸·표정이) 얼어붙다, 굳다; 동결하다"},
+    {en:"narrative",kr:"이야기, 서사; 이야기 형식의"},
+    {en:"profit",kr:"이익, 수익; 이익을 얻다"},
+    {en:"poverty",kr:"가난, 빈곤"},
+    {en:"alleviate",kr:"(고통·문제 등을) 완화하다, 누그러뜨리다"},
+    {en:"coherent",kr:"(말·글이) 잘 짜여진, 앞뒤의 논리가 맞는, 조리 있는"},
+    {en:"surgery",kr:"(외과적) 수술"},
+    {en:"contribute",kr:"(~에) 기여하다; ~의 원인이 되다"},
+    {en:"household",kr:"가정, 세대; 가정용의, 가사의"},
+    {en:"outstanding",kr:"눈에 띄게 뛰어난; 미해결된"},
+    {en:"aid",kr:"도움, 지원, 원조; 돕다, 원조하다"},
+    {en:"invaluable",kr:"매우 귀중한, 값을 매길 수 없는"},
+    {en:"stain",kr:"얼룩을 묻히다; (명예를) 훼손하다; 얼룩; 불명예"},
+  ],
+  20: [
+    {en:"pay off",kr:"(빚을) 다 갚다; (노력의) 대가를 얻다, 보상을 받다"},
+    {en:"fall on",kr:"(책임·부담이) ~에게 부과되다; ~날짜에 해당하다"},
+    {en:"call ~ names",kr:"~를 욕하다, 놀리다"},
+    {en:"call on",kr:"~를 지명해 …을 하라고 시키다; (도움을) 촉구하다"},
+    {en:"keep off",kr:"~에 가까이 가지 않다; (해충 등의) 접근을 막다, 쫓다"},
+    {en:"call into question",kr:"~에 의문을 제기하다, ~의 신뢰성을 의심하다"},
+    {en:"focus on",kr:"~에 집중하다, ~에 초점을 두다"},
+    {en:"prey on",kr:"먹이로 삼다, 사냥하다"},
+    {en:"see off",kr:"배웅하다"},
+    {en:"wear off",kr:"서서히 사라지다, 가라앉다; 닳아 없어지다, 지워지다"},
+    {en:"call it a day",kr:"오늘은 여기까지 하다, 마무리하다"},
+    {en:"catch on",kr:"이해하다, 파악하다; 유행하다, 인기를 얻다"},
+    {en:"show off",kr:"자랑하다, 뽐내다"},
+    {en:"hang on",kr:"잠깐 기다리다; 꽉 붙잡다"},
+    {en:"go off",kr:"폭발하다; (벨·알람이) 울리다; 떠나다, 자리를 뜨다"},
+    {en:"call the shots",kr:"결정권[주도권]을 쥐다, 지휘하다"},
+    {en:"set ~ apart",kr:"~을 구별시키다, 차별화시키다, 돋보이게 하다"},
+    {en:"set about",kr:"(구체적 행위를) 즉시 시작하다"},
+    {en:"set aside",kr:"한쪽으로 제쳐두다, 접어두다; (돈·시간을) 따로 떼어두다"},
+    {en:"set back",kr:"지연시키다, 방해하다; 비용[손실]을 안기다"},
+    {en:"set free",kr:"풀어주다, 석방하다"},
+    {en:"set in",kr:"(안 좋은 일이) 엄습하다, 밀려오다, 찾아들다, 깃들다"},
+    {en:"set out",kr:"(큰 목표를 위해) 첫걸음을 내딛다; 여행길에 오르다"},
+    {en:"set up",kr:"설립하다; 준비하다"},
+  ],
+  21: [
+    {en:"plant",kr:"식물; 공장, 생산시설; 식물을 심다"},
+    {en:"seldom",kr:"거의 ~하지 않는"},
+    {en:"column",kr:"(건물의) 거대한 기둥; (신문·잡지의) 칼럼"},
+    {en:"fuel",kr:"(석탄·석유·가스 등의) 연료; 동력; 부추기다, 부채질하다"},
+    {en:"utility",kr:"(전기·가스·수도 등의) 공과금; 유용성, 효용"},
+    {en:"despite",kr:"~에도 불구하고"},
+    {en:"daydream",kr:"공상, 몽상; 멍하니 공상하다"},
+    {en:"craft",kr:"공예(품); 기예; 공들여 정교하게 만들어내다"},
+    {en:"biology",kr:"생물학"},
+    {en:"quantity",kr:"양, 수량"},
+    {en:"tender",kr:"연한, 쉽게; 여린, 민감한; 상냥한, 다정한"},
+    {en:"product",kr:"제품, 판매품"},
+    {en:"limit",kr:"제한, 한도; 제한하다, 한정하다"},
+    {en:"escape",kr:"탈출하다, 빠져나오다; (위험을) 면하다; 탈출구, 도피처"},
+    {en:"ordinary",kr:"평범한, 특별할 것 없는, 보통의"},
+    {en:"duration",kr:"(어떤 일의) 지속 시간[기간]"},
+    {en:"meantime",kr:"그 사이, 그 시간"},
+    {en:"verbal",kr:"말로 하는, 구두상의; 언어적인"},
+    {en:"liable",kr:"~할 것 같은; 법적 책임이 있는"},
+    {en:"stick",kr:"달라붙다; (안 가고) 머무르다; (마음에) 오래 남다"},
+    {en:"thoughtful",kr:"사려 깊은, 배려심 있는"},
+    {en:"courage",kr:"용기, 배짱"},
+    {en:"superior",kr:"우월한, 뛰어난; (조직 내의) 상사"},
+    {en:"exotic",kr:"이국적인; 특이한, 색다른"},
+    {en:"aptitude",kr:"타고난 재능, 적성"},
+  ],
+  22: [
+    {en:"offspring",kr:"자식, 후손, (동물의) 새끼"},
+    {en:"indifferent",kr:"무관심한, 흥미 없는"},
+    {en:"priceless",kr:"값을 매길 수 없는, 매우 귀중한"},
+    {en:"demonstrate",kr:"(실례로) 보여주다, 입증하다; 직접 보여주다, 시연하다"},
+    {en:"facility",kr:"(특정 목적을 위한) 설비, 시설; 편의시설; 부대시설"},
+    {en:"declare",kr:"공식적으로 밝히다, 선언하다"},
+    {en:"bare",kr:"벌거벗은, 아무것도 걸치지 않은; 있는 그대로의"},
+    {en:"category",kr:"범주, 유형"},
+    {en:"sensible",kr:"분별 있는, 현명한; 합리적인"},
+    {en:"manual",kr:"손으로 하는; 수동 조작의; 사용설명서"},
+    {en:"cancer",kr:"암"},
+    {en:"staff",kr:"직원, 직원들"},
+    {en:"crash",kr:"충돌하다, 추락하다; (경제·시장이) 붕괴하다; 충돌; 폭락"},
+    {en:"bruise",kr:"타박상, 멍; 멍들게 하다"},
+    {en:"regret",kr:"후회하다; 유감스럽게 생각하다; 유감, 후회"},
+    {en:"process",kr:"(일의) 과정, 진행절차; 처리하다, 가공하다"},
+    {en:"mechanic",kr:"(자동차·기계의) 수리공, 정비사"},
+    {en:"destiny",kr:"(피할 수 없는) 운명, 숙명"},
+    {en:"target",kr:"목표, (겨냥) 대상; 겨냥하다, 공략하다"},
+    {en:"commonplace",kr:"아주 흔한, 평범한; 흔한 일; 상투적인 말"},
+    {en:"favorable",kr:"우호적인, 호의적인; (조건·상황이) 유리한"},
+    {en:"salary",kr:"월급, 급여"},
+    {en:"amuse",kr:"즐겁게 하다, 재미를 주다"},
+    {en:"native",kr:"태생의, 그 나라 출신의; 토착의; 토박이, 그 나라 출신"},
+    {en:"efficient",kr:"효율적인; 능률적인"},
+  ],
+  23: [
+    {en:"relieve",kr:"(통증·불안·문제 등을) 덜어주다, 완화하다"},
+    {en:"occupation",kr:"직업, 일; 점령, 점유"},
+    {en:"solar",kr:"태양의, 태양에서 오는"},
+    {en:"political",kr:"정치의; 정치적 의도를[목적을] 가진"},
+    {en:"punch",kr:"(주먹으로) 한 대 치기; 주먹으로 세게 치다"},
+    {en:"mate",kr:"짝, 파트너; (동물이) 짝을 짓다, 교미하다"},
+    {en:"devise",kr:"고안하다, 생각해내다, 만들어내다"},
+    {en:"insurance",kr:"보험, 보험금"},
+    {en:"embassy",kr:"대사관"},
+    {en:"disability",kr:"(신체적·정신적) 장애"},
+    {en:"solid",kr:"고체의, 단단한; 탄탄한; 확실한, 확고부동한"},
+    {en:"statue",kr:"동상, 조각상"},
+    {en:"apart",kr:"떨어져; 따로, 분리되어"},
+    {en:"slip",kr:"미끄러지다; 슬며시 넣다[빼다]; 작은 종이조각; 사소한 실수"},
+    {en:"contemporary",kr:"현대의; 동시대의; 동시대 사람"},
+    {en:"muster",kr:"(힘·용기 등을) 모으다, 짜내다"},
+    {en:"thorough",kr:"철저한, 꼼꼼한, 빈틈없는"},
+    {en:"visible",kr:"눈에 보이는, 선명한; 뚜렷한, 가시적인"},
+    {en:"furthermore",kr:"게다가, 뿐만 아니라"},
+    {en:"imply",kr:"암시하다, 시사하다, 넌지시 뜻하다"},
+    {en:"wound",kr:"외상, 상처; 마음의 상처"},
+    {en:"appropriate",kr:"적절한, 적합한, 알맞은"},
+    {en:"procedure",kr:"정해진 공식 절차; (의료) 수술, 시술"},
+    {en:"bankrupt",kr:"파산한, 지급불능 상태의"},
+    {en:"comfort",kr:"편안함, 안락함; 위로하다"},
+  ],
+  24: [
+    {en:"delay",kr:"늦추다, 지연시키다; 지연"},
+    {en:"rumor",kr:"소문, 확인되지 않은 정보"},
+    {en:"enable",kr:"~할 수 있게 하다, 가능하게 하다"},
+    {en:"approve",kr:"찬성하다; 승인하다, 허가하다"},
+    {en:"steep",kr:"(경사가) 가파른; (증감이) 급격한; 터무니없이 비싼"},
+    {en:"objective",kr:"객관적인, 사실에 기반한; 목표"},
+    {en:"humility",kr:"겸손, 겸허함"},
+    {en:"delight",kr:"기쁨, 큰 즐거움; 기쁨을 주다"},
+    {en:"remain",kr:"남다; 계속 ~한 상태로 있다"},
+    {en:"switch",kr:"바꾸다, 변경하다; 서로 맞바꾸다"},
+    {en:"negative",kr:"부정적인, 반대의; (검사 결과가) 음성의"},
+    {en:"puzzle",kr:"수수께끼, 난해한 문제; 당황시키다"},
+    {en:"psychology",kr:"심리학; (사람의) 심리, 심리상태"},
+    {en:"mental",kr:"정신의, 마음의"},
+    {en:"tear",kr:"찢다, 찢어지다"},
+    {en:"administer",kr:"운영하다, 관리하다; (약·주사를) 투여하다"},
+    {en:"bunch",kr:"한 다발, 한 송이, 한 무리; 다수, 많음"},
+    {en:"casual",kr:"편한, 격식 없는, 일상적인; 우연한, 의도치 않은"},
+    {en:"council",kr:"(지역) 의회, (학교·조직의) 위원회"},
+    {en:"cruel",kr:"잔인한; 가혹한, 냉혹한"},
+    {en:"literate",kr:"읽고 쓸 줄 아는, 문해력이 있는"},
+    {en:"machinery",kr:"기계류, 기계 장비 일체"},
+    {en:"prejudice",kr:"편견, 선입견"},
+    {en:"suitable",kr:"적합한, 알맞은"},
+    {en:"violate",kr:"(법규·합의 등을) 위반하다, 어기다"},
+  ],
+  25: [
+    {en:"run over",kr:"(차가) 치다, 들이받다; 빠르게 점검하다, 연습하다"},
+    {en:"work on",kr:"~에 노력을 기울이다, ~을 열심히 하다"},
+    {en:"believe in",kr:"~이 존재한다고 믿다; ~의 가치를 믿다"},
+    {en:"chip in",kr:"각출하다, 십시일반으로 보태다"},
+    {en:"take over",kr:"넘겨받다, 인수하다"},
+    {en:"hand over",kr:"넘겨주다, 인계하다"},
+    {en:"let in",kr:"들여보내다"},
+    {en:"give in",kr:"마침내 항복하다, 굴복하다; 제출하다"},
+    {en:"break in",kr:"무단 침입하다"},
+    {en:"take in",kr:"받아들이다, 이해하다; 섭취하다"},
+    {en:"turn in",kr:"제출하다; 잠자리에 들다"},
+    {en:"pull over",kr:"차를 세우다"},
+    {en:"count ~ in",kr:"포함시키다, 끼워주다"},
+    {en:"work out",kr:"해결되다; (노력해서) 알아내다, 만들어내다"},
+    {en:"look over",kr:"훑어보다, 검토하다"},
+    {en:"get to work",kr:"일을 시작하다; 일하러 가다, 출근하다"},
+    {en:"start a new life",kr:"(과거에서 벗어나) 새출발하다, 새 삶을 시작하다"},
+    {en:"work for",kr:"~에서 일하다, ~에서 근무하다"},
+    {en:"get started",kr:"시작하다"},
+    {en:"out of work",kr:"실직한, 일이 없는"},
+    {en:"start from scratch",kr:"아무것도 없는 상태에서 시작하다, 맨바닥에서 시작하다"},
+    {en:"for a start",kr:"우선, 먼저"},
+    {en:"at work",kr:"일하는 중인; 출근해 있는"},
+    {en:"from start to finish",kr:"처음부터 끝까지, 완전히"},
+    {en:"start over",kr:"처음부터 다시 시작하다"},
+    {en:"do the work",kr:"해야 할 일을 하다"},
+  ]
+};
+
+// ─────────────────────────────────────────────
+// TTS (Text-to-Speech)
+// ─────────────────────────────────────────────
+const TTS = {
+  voices: [],
+  rate: 0.9,
+  ready: false,
+
+  init() {
+    const load = () => {
+      this.voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+      this.ready = this.voices.length > 0;
+    };
+    load();
+    speechSynthesis.onvoiceschanged = () => load();
+  },
+
+  // 영단어 발음 재생
+  speak(text) {
+    if (!text) return;
+    // beat/defeat 같은 슬래시 표현은 앞부분만 읽기
+    const clean = text.split('/')[0].trim();
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.lang = 'en-US';
+    utt.rate = this.rate;
+    // 내장 목소리 우선 (오프라인 가능)
+    const local = this.voices.find(v => v.localService && v.lang.startsWith('en'));
+    const fallback = this.voices[0];
+    if (local) utt.voice = local;
+    else if (fallback) utt.voice = fallback;
+    speechSynthesis.speak(utt);
+  }
+};
+
+TTS.init();
+
+
+let selectedDay = null;
+let selectedMode = null;
+let currentWords = [];
+let currentIndex = 0;
+let flashDirection = 'kr';
+let typeDirection = 'kr';
+let isFlipped = false;
+let score = { correct: 0, wrong: 0 };
+let wrongWords = [];
+let hintUsed = false;
+let skipped = 0;
+let rankSubmitted = false;
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function init() {
+  const grid = document.getElementById('day-grid');
+  for (let d = 1; d <= 25; d++) {
+    const btn = document.createElement('button');
+    btn.className = 'day-btn';
+    btn.textContent = `Day ${d.toString().padStart(2,'0')}`;
+    btn.onclick = () => selectDay(d, btn);
+    grid.appendChild(btn);
+  }
+}
+
+function selectDay(day, btn) {
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedDay = day;
+  checkStartable();
+}
+
+function selectMode(mode) {
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('mode-'+mode).classList.add('selected');
+  selectedMode = mode;
+  checkStartable();
+}
+
+function checkStartable() {
+  document.getElementById('start-btn').disabled = !(selectedDay && selectedMode);
+}
+
+function startStudy(words) {
+  currentWords = words ? [...words] : [...VOCAB[selectedDay]];
+  shuffle(currentWords);
+  currentIndex = 0;
+  score = {correct:0, wrong:0};
+  wrongWords = [];
+  skipped = 0;
+  // 전역 노출 (랭킹 제출용)
+  window._score = score;
+  window._selectedDay = selectedDay;
+  window._selectedMode = selectedMode;
+
+  hide('screen-select');
+  if (selectedMode === 'flash') {
+    show('screen-flash');
+    flashDirection = 'kr';
+    updateDirButtons();
+    loadFlashCard();
+  } else {
+    show('screen-type');
+    typeDirection = 'kr';
+    updateTypeDirButtons();
+    loadTypeQuestion();
+  }
+}
+
+// ─────────────────────────────────────────────
+// FLASHCARD
+// ─────────────────────────────────────────────
+function loadFlashCard() {
+  isFlipped = false;
+  const card = document.getElementById('flashcard');
+  card.classList.remove('flipped');
+
+  const w = currentWords[currentIndex];
+  updateFlashProgress();
+
+  const frontLabel = document.getElementById('front-label');
+  const frontContent = document.getElementById('front-content');
+  const backContent = document.getElementById('back-content');
+  const backHint = document.getElementById('back-hint');
+  const navInfo = document.getElementById('flash-nav-info');
+
+  navInfo.textContent = `Day ${selectedDay} · ${currentWords.length}개 단어 (WW5)`;
+
+  if (flashDirection === 'kr') {
+    frontLabel.textContent = '한국어 뜻';
+    frontContent.className = 'card-content';
+    frontContent.textContent = w.kr;
+    backContent.className = 'card-content en';
+    backContent.textContent = w.en;
+    backHint.textContent = '';
+  } else {
+    frontLabel.textContent = '영단어';
+    frontContent.className = 'card-content en';
+    frontContent.textContent = w.en;
+    backContent.className = 'card-content';
+    backContent.textContent = w.kr;
+    backHint.textContent = '';
+  }
+}
+
+function flipCard() {
+  isFlipped = !isFlipped;
+  document.getElementById('flashcard').classList.toggle('flipped', isFlipped);
+  // 카드 뒤집으면 영단어 발음
+  if (isFlipped) {
+    TTS.speak(currentWords[currentIndex].en);
+  }
+}
+
+function markCard(knew) {
+  // 알아요/몰라요 누를 때도 발음
+  TTS.speak(currentWords[currentIndex].en);
+  if (knew) { score.correct++; }
+  else { score.wrong++; wrongWords.push(currentWords[currentIndex]); }
+  nextFlash();
+}
+
+function nextFlash() {
+  currentIndex++;
+  if (currentIndex >= currentWords.length) {
+    showResult();
+  } else {
+    loadFlashCard();
+  }
+}
+
+function shuffleAndRestart() {
+  shuffle(currentWords);
+  currentIndex = 0;
+  score = {correct:0, wrong:0};
+  wrongWords = [];
+  loadFlashCard();
+}
+
+function updateFlashProgress() {
+  const pct = ((currentIndex) / currentWords.length) * 100;
+  document.getElementById('flash-progress').style.width = pct + '%';
+  document.getElementById('flash-counter').textContent = `${currentIndex + 1} / ${currentWords.length}`;
+}
+
+function setDirection(dir) {
+  flashDirection = dir;
+  document.getElementById('dir-kr').classList.toggle('active', dir === 'kr');
+  document.getElementById('dir-en').classList.toggle('active', dir === 'en');
+  loadFlashCard();
+}
+
+function updateDirButtons() {
+  document.getElementById('dir-kr').classList.add('active');
+  document.getElementById('dir-en').classList.remove('active');
+}
+
+// ─────────────────────────────────────────────
+// TYPING TEST
+// ─────────────────────────────────────────────
+function loadTypeQuestion() {
+  hintUsed = false;
+  const w = currentWords[currentIndex];
+
+  const pct = (currentIndex / currentWords.length) * 100;
+  document.getElementById('type-progress').style.width = pct + '%';
+  document.getElementById('type-counter').textContent = `${currentIndex + 1} / ${currentWords.length}`;
+  document.getElementById('type-nav-info').textContent = `Day ${selectedDay} · ${currentWords.length}개 단어`;
+
+  const promptLabel = document.getElementById('type-prompt-label');
+  const promptText = document.getElementById('type-prompt-text');
+
+  if (typeDirection === 'kr') {
+    promptLabel.textContent = '한국어 뜻 → 영단어 입력';
+    promptText.className = 'prompt-text';
+    promptText.textContent = w.kr;
+  } else {
+    promptLabel.textContent = '영단어 → 한국어 입력';
+    promptText.className = 'prompt-text en';
+    promptText.textContent = w.en;
+  }
+
+  const input = document.getElementById('type-input');
+  input.value = '';
+  input.className = 'type-input';
+  input.placeholder = typeDirection === 'kr' ? '영단어를 입력하세요...' : '한국어 뜻을 입력하세요...';
+  input.focus();
+
+  setFeedback('', '');
+}
+
+function checkAnswer() {
+  const input = document.getElementById('type-input');
+  const userAns = input.value.trim().toLowerCase();
+  if (!userAns) return;
+
+  const w = currentWords[currentIndex];
+  const correct = typeDirection === 'kr' ? w.en.toLowerCase() : w.kr.toLowerCase();
+
+  // 정답 후보 목록: 세미콜론·쉼표로 구분된 여러 표현을 각각 허용
+  // 단, 각 후보는 공백 정규화 후 완전 일치만 허용 (부분 일치 금지)
+  const normalize = s => s.replace(/\s+/g, ' ').trim();
+  const candidates = correct
+    .split(/[;,]/)
+    .map(s => normalize(s))
+    .filter(s => s.length > 0);
+
+  const userNorm = normalize(userAns);
+  const isCorrect = candidates.some(c => c === userNorm);
+
+  if (isCorrect) {
+    score.correct++;
+    input.className = 'type-input correct-anim';
+    setFeedback('✓ 정답이에요! 🎉', 'correct');
+    TTS.speak(w.en);
+    setTimeout(() => nextType(), 900);
+  } else {
+    score.wrong++;
+    wrongWords.push(w);
+    input.className = 'type-input wrong-anim';
+    setFeedback(`✗ 정답: ${typeDirection === 'kr' ? w.en : w.kr}`, 'wrong');
+    TTS.speak(w.en);
+    setTimeout(() => nextType(), 1600);
+  }
+}
+
+function nextType() {
+  currentIndex++;
+  if (currentIndex >= currentWords.length) {
+    showResult();
+  } else {
+    loadTypeQuestion();
+  }
+}
+
+function skipWord() {
+  skipped++;
+  wrongWords.push(currentWords[currentIndex]);
+  setFeedback(`→ 건너뜀: ${currentWords[currentIndex].en}`, 'wrong');
+  setTimeout(() => nextType(), 800);
+}
+
+// 띄어쓰기 구조를 유지하며 마스킹하는 헬퍼
+function maskAnswer(answer, revealLen) {
+  const words = answer.split(' ');
+  let revealed = revealLen;
+  const masked = words.map(word => {
+    if (revealed <= 0) {
+      return '_'.repeat(word.length);
+    } else if (revealed >= word.length) {
+      revealed -= word.length;
+      return word;
+    } else {
+      const shown = word.slice(0, revealed);
+      const hidden = '_'.repeat(word.length - revealed);
+      revealed = 0;
+      return shown + hidden;
+    }
+  });
+  return masked.join(' ');
+}
+
+function showFirstLetter() {
+  const w = currentWords[currentIndex];
+  const answer = typeDirection === 'kr' ? w.en : w.kr;
+  const hintBody = maskAnswer(answer, 1);
+  const el = document.getElementById('type-feedback');
+  el.className = 'feedback hint';
+  el.textContent = '🔤 첫 글자: ' + hintBody;
+  const input = document.getElementById('type-input');
+  if (!input.value) {
+    input.value = answer[0];
+    input.focus();
+    input.setSelectionRange(1, 1);
+  }
+}
+
+function showHint() {
+  const w = currentWords[currentIndex];
+  const answer = typeDirection === 'kr' ? w.en : w.kr;
+  const nonSpaceLen = answer.replace(/ /g, '').length;
+  const revealLen = Math.ceil(nonSpaceLen / 3);
+  const hintBody = maskAnswer(answer, revealLen);
+  const el = document.getElementById('type-feedback');
+  el.className = 'feedback hint';
+  el.textContent = '💡 힌트: ' + hintBody;
+}
+
+function setFeedback(msg, type) {
+  const el = document.getElementById('type-feedback');
+  if (!type || type === 'hidden') {
+    el.className = 'feedback hidden';
+    el.textContent = '';
+  } else {
+    el.className = 'feedback ' + type;
+    el.textContent = msg;
+  }
+}
+
+function handleTypeKey(e) {
+  if (e.key === 'Enter') checkAnswer();
+}
+
+function setTypeDirection(dir) {
+  typeDirection = dir;
+  document.getElementById('tdir-kr').classList.toggle('active', dir === 'kr');
+  document.getElementById('tdir-en').classList.toggle('active', dir === 'en');
+  loadTypeQuestion();
+}
+
+function updateTypeDirButtons() {
+  document.getElementById('tdir-kr').classList.add('active');
+  document.getElementById('tdir-en').classList.remove('active');
+}
+
+// ─────────────────────────────────────────────
+// RESULT
+// ─────────────────────────────────────────────
+function showResult() {
+  hide('screen-flash'); hide('screen-type');
+  show('screen-result');
+  // 점수 등록 버튼 초기화
+  rankSubmitted = false;
+  const btn = document.getElementById('submit-score-btn');
+  if (btn) { btn.textContent = '🏆 점수 등록'; btn.disabled = false; }
+
+  const total = score.correct + score.wrong;
+  const pct = total > 0 ? Math.round((score.correct / total) * 100) : 0;
+
+  document.getElementById('result-score').textContent = pct + '%';
+
+  let msg, sub;
+  if (pct >= 90) { msg = '완벽해요! 🏆'; sub = `${total}개 중 ${score.correct}개 정답! 훌륭해요.`; }
+  else if (pct >= 70) { msg = '잘했어요! 👍'; sub = `${total}개 중 ${score.correct}개 정답. 조금만 더!`; }
+  else if (pct >= 50) { msg = '절반 성공! 💪'; sub = `${total}개 중 ${score.correct}개 정답. 다시 도전해봐요.`; }
+  else { msg = '더 연습해봐요! 📚'; sub = `${total}개 중 ${score.correct}개 정답. 파이팅!`; }
+
+  document.getElementById('result-msg').textContent = msg;
+  document.getElementById('result-sub').textContent = sub;
+
+  // wrong list
+  const uniqueWrong = [...new Map(wrongWords.map(w => [w.en, w])).values()];
+  if (uniqueWrong.length > 0) {
+    const wl = document.getElementById('wrong-list');
+    wl.style.display = 'block';
+    const items = document.getElementById('wrong-items');
+    items.innerHTML = uniqueWrong.map(w => `
+      <div class="wrong-item">
+        <span class="wrong-kr">${w.kr.length > 30 ? w.kr.slice(0,30)+'…' : w.kr}</span>
+        <span class="wrong-en">${w.en}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function retryWrong() {
+  if (wrongWords.length === 0) { goHome(); return; }
+  const unique = [...new Map(wrongWords.map(w => [w.en, w])).values()];
+  hide('screen-result');
+  document.getElementById('wrong-list').style.display = 'none';
+  document.getElementById('wrong-items').innerHTML = '';
+  startStudy(unique);
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function goHome() {
+  hide('screen-flash'); hide('screen-type'); hide('screen-result');
+  show('screen-select');
+  document.getElementById('wrong-list').style.display = 'none';
+  document.getElementById('wrong-items').innerHTML = '';
+  document.getElementById('type-feedback').className = 'feedback hidden';
+}
+
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+init();
+</script>
+
+<!-- ── FIREBASE + RANKING ── -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, getDocs, query, where, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD8bRJoqTaXuM266o-12RKqm9v5mFqd8Ro",
+  authDomain: "wordwise-ranking.firebaseapp.com",
+  projectId: "wordwise-ranking",
+  storageBucket: "wordwise-ranking.firebasestorage.app",
+  messagingSenderId: "376142821536",
+  appId: "1:376142821536:web:8ac11e04a514be5306f1c5"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// ── 선생님/반 목록 (실제 이름으로 수정하세요!) ──
+const TEACHERS = {
+  "선생님1": ["월요일반","화요일반","수요일반","목요일반","금요일반"],
+  "선생님2": ["월요일반","화요일반","수요일반","목요일반","금요일반"],
+  "선생님3": ["월요일반","화요일반","수요일반","목요일반","금요일반"],
+};
+
+let currentRankTab = 'class';
+let selectedTeacher = null;
+let selectedClass = null;
+
+// 전역 노출
+window.showRanking = showRanking;
+window.closeRanking = closeRanking;
+window.saveProfile = saveProfile;
+window.resetProfile = resetProfile;
+window.switchRankTab = switchRankTab;
+window.loadRanking = loadRanking;
+window.submitScoreToRanking = submitScoreToRanking;
+
+// ── 프로필 ──
+function getProfile() {
+  try { return JSON.parse(localStorage.getItem('ww4_profile')) || null; }
+  catch { return null; }
+}
+
+// ── 버튼 UI 초기화 ──
+function initProfileSetup() {
+  selectedTeacher = null;
+  selectedClass = null;
+
+  // 선생님 버튼
+  const teacherDiv = document.getElementById('teacher-btns');
+  teacherDiv.innerHTML = Object.keys(TEACHERS).map(t =>
+    `<button class="sel-btn" onclick="selectTeacher('${t}')">${t}</button>`
+  ).join('');
+
+  // 반 버튼 초기화
+  document.getElementById('class-btns').innerHTML =
+    '<span style="font-size:0.8rem;color:var(--text-faint)">선생님을 먼저 선택해주세요</span>';
+}
+
+window.selectTeacher = function(teacher) {
+  selectedTeacher = teacher;
+  document.querySelectorAll('#teacher-btns .sel-btn').forEach(b => {
+    b.classList.toggle('selected', b.textContent === teacher);
+  });
+  // 반 버튼 업데이트
+  const classDiv = document.getElementById('class-btns');
+  classDiv.innerHTML = TEACHERS[teacher].map(c =>
+    `<button class="sel-btn" onclick="selectClass('${c}')">${c}</button>`
+  ).join('');
+  selectedClass = null;
+};
+
+window.selectClass = function(cls) {
+  selectedClass = cls;
+  document.querySelectorAll('#class-btns .sel-btn').forEach(b => {
+    b.classList.toggle('selected-class', b.textContent === cls);
+    b.classList.remove('selected');
+  });
+};
+
+function saveProfile() {
+  if (!selectedTeacher) { alert('선생님을 선택해주세요!'); return; }
+  if (!selectedClass) { alert('반을 선택해주세요!'); return; }
+  const name = document.getElementById('setup-name').value.trim();
+  if (!name) { alert('이름을 입력해주세요!'); return; }
+  localStorage.setItem('ww4_profile', JSON.stringify({
+    teacher: selectedTeacher, class: selectedClass, name
+  }));
+  openRankMain();
+}
+
+function resetProfile() {
+  localStorage.removeItem('ww4_profile');
+  document.getElementById('rank-main').style.display = 'none';
+  document.getElementById('rank-profile-setup').style.display = 'block';
+  initProfileSetup();
+}
+
+// ── 랭킹 열기/닫기 ──
+function showRanking() {
+  ['screen-select','screen-flash','screen-type','screen-result'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('screen-ranking').style.display = 'block';
+  const p = getProfile();
+  if (!p) {
+    document.getElementById('rank-profile-setup').style.display = 'block';
+    document.getElementById('rank-main').style.display = 'none';
+    initProfileSetup();
+  } else {
+    openRankMain();
+  }
+}
+function closeRanking() {
+  document.getElementById('screen-ranking').style.display = 'none';
+  document.getElementById('screen-select').style.display = 'block';
+}
+function openRankMain() {
+  const p = getProfile();
+  document.getElementById('rank-profile-setup').style.display = 'none';
+  document.getElementById('rank-main').style.display = 'block';
+  document.getElementById('my-class-label').textContent = `${p.teacher} · ${p.class}`;
+  document.getElementById('my-name-label').textContent = p.name;
+
+  const sel = document.getElementById('rank-day-select');
+  sel.innerHTML = '<option value="all">전체 합산</option>' +
+    Array.from({length:25},(_,i)=>`<option value="${i+1}">Day ${String(i+1).padStart(2,'0')}</option>`).join('');
+
+  // 테스트 패널 선생님 셀렉트 채우기
+  const ts = document.getElementById('test-teacher-sel');
+  ts.innerHTML = Object.keys(TEACHERS).map(t=>`<option value="${t}">${t}</option>`).join('');
+  updateTestClassSel();
+
+  loadRanking();
+}
+
+// ── 탭 전환 ──
+function switchRankTab(tab) {
+  currentRankTab = tab;
+  document.getElementById('tab-class').classList.toggle('active', tab === 'class');
+  document.getElementById('tab-all').classList.toggle('active', tab === 'all');
+  loadRanking();
+}
+
+// ── 랭킹 불러오기 ──
+async function loadRanking() {
+  const wrap = document.getElementById('rank-list-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="rank-loading">불러오는 중... ⏳</div>';
+  const p = getProfile();
+  if (!p) return;
+  const dayVal = document.getElementById('rank-day-select').value;
+  try {
+    let constraints = [
+      where('book','==','ww4'),
+      where('day','==',dayVal),
+      orderBy('score','desc')
+    ];
+    if (currentRankTab === 'class') {
+      constraints = [
+        where('book','==','ww4'),
+        where('teacher','==',p.teacher),
+        where('class','==',p.class),
+        where('day','==',dayVal),
+        orderBy('score','desc')
+      ];
+    }
+    const snap = await getDocs(query(collection(db,'rankings'), ...constraints));
+    const docs = [];
+    snap.forEach(d => docs.push({...d.data(), _id: d.id}));
+
+    // 이름+반 기준 최고점
+    const best = {};
+    docs.forEach(d => {
+      const key = `${d.teacher}_${d.class}_${d.name}`;
+      if (!best[key] || d.score > best[key].score) best[key] = d;
+    });
+    renderRankList(Object.values(best).sort((a,b) => b.score - a.score), p);
+  } catch(e) {
+    wrap.innerHTML = `<div class="rank-empty">불러오기 실패 😢<br><small style="color:var(--text-faint)">${e.message}</small></div>`;
+  }
+}
+
+function renderRankList(list, myProfile) {
+  const wrap = document.getElementById('rank-list-wrap');
+  const medals = ['🥇','🥈','🥉'];
+  if (list.length === 0) {
+    wrap.innerHTML = '<div class="rank-empty">아직 점수가 없어요!<br>테스트 완료 후 점수를 등록해보세요 🚀</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((item, i) => {
+    const isMe = item.name === myProfile.name &&
+                 item.teacher === myProfile.teacher &&
+                 item.class === myProfile.class;
+    const medal = i < 3 ? medals[i] :
+      `<span style="font-family:Space Mono;font-size:0.78rem;color:var(--text-dim)">${i+1}위</span>`;
+    const isTest = item.isTest;
+    return `<div class="rank-item${isMe?' me':''}">
+      <div class="rank-medal">${medal}</div>
+      <div class="rank-info">
+        <div class="rank-name">${item.name}${isMe?' <span style="color:var(--accent2);font-size:0.72rem">← 나</span>':''}${isTest?' <span style="color:var(--text-faint);font-size:0.7rem">[테스트]</span>':''}</div>
+        <div class="rank-detail">${currentRankTab==='all'?item.teacher+' · '+item.class+' · ':''}${item.day==='all'?'전체':'Day '+String(item.day).padStart(2,'0')}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${item.score}%"></div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="rank-score">${item.score}%</div>
+        <div style="font-size:0.72rem;color:var(--text-dim)">${item.correct||'-'}/${item.total||'-'}개</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 점수 제출 ──
+async function submitScoreToRanking() {
+  const p = getProfile();
+  if (!p) { showRanking(); return; }
+  if (window.rankSubmitted) { alert('이미 등록했어요!'); return; }
+  const total = (window._score?.correct||0) + (window._score?.wrong||0);
+  const correct = window._score?.correct||0;
+  const pct = total > 0 ? Math.round((correct/total)*100) : 0;
+  try {
+    await addDoc(collection(db,'rankings'), {
+      book:'ww4', teacher:p.teacher, class:p.class, name:p.name,
+      day: window._selectedDay ? String(window._selectedDay) : 'all',
+      score:pct, correct, total,
+      mode:window._selectedMode||'',
+      isTest:false,
+      timestamp:serverTimestamp()
+    });
+    window.rankSubmitted = true;
+    const btn = document.getElementById('submit-score-btn');
+    if (btn) { btn.textContent='✅ 등록완료'; btn.disabled=true; }
+    alert(`🎉 ${pct}점 등록 완료!\n랭킹에서 확인해보세요!`);
+  } catch(e) { alert('제출 실패: '+e.message); }
+}
+
+// ── 테스트 패널 ──
+</script>
+</body>
+</html>
